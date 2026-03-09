@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Automation Architecture — Knowledge Base</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px; }
+
+  /* Nav - matches other dashboards exactly */
+  .nav { display: flex; gap: 4px; margin-bottom: 24px; background: #1a1d27; border-radius: 10px; padding: 4px; border: 1px solid #2d3140; width: fit-content; }
+  .nav a { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; color: #9ca3af; text-decoration: none; transition: all 0.15s; }
+  .nav a:hover { color: #e1e4e8; background: #2d3140; }
+  .nav a.active { background: #60a5fa22; color: #60a5fa; border: 1px solid #60a5fa44; }
+
+  .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 32px; }
+  .header h1 { font-size: 24px; font-weight: 600; color: #fff; }
+  .header .updated { font-size: 13px; color: #6b7280; }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: #1a1d27; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #2d3140; }
+  .stat-card .number { font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+  .stat-card .label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .card { background: #1a1d27; border-radius: 12px; padding: 24px; border: 1px solid #2d3140; }
+  .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #fff; }
+  .card-full { grid-column: 1 / -1; }
+
+  /* Tree styles */
+  .tree { font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 13px; line-height: 1.8; }
+  .tree ul { list-style: none; padding-left: 24px; }
+  .tree > ul { padding-left: 0; }
+  .tree li { position: relative; }
+  .tree li::before { content: ''; position: absolute; left: -16px; top: 0; border-left: 1px solid #2d3140; height: 100%; }
+  .tree li::after { content: ''; position: absolute; left: -16px; top: 14px; border-bottom: 1px solid #2d3140; width: 12px; }
+  .tree li:last-child::before { height: 14px; }
+  .tree > ul > li::before, .tree > ul > li::after { display: none; }
+
+  .folder { color: #fbbf24; cursor: pointer; user-select: none; }
+  .folder::before { content: '📁 '; }
+  .folder.open::before { content: '📂 '; }
+  .file { color: #9ca3af; }
+  .file::before { content: '📄 '; }
+  .auto::before { content: '🤖 '; }
+  .auto { color: #22d3ee; }
+
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; font-family: -apple-system, sans-serif; }
+  .tag-ai { background: #60a5fa22; color: #60a5fa; }
+  .tag-auto { background: #22d3ee22; color: #22d3ee; }
+  .tag-new { background: #34d39922; color: #34d399; }
+  .tag-existing { background: #fbbf2422; color: #fbbf24; }
+
+  /* Data source cards */
+  .source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .source-card { background: #0f1117; border: 1px solid #2d3140; border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 12px; }
+  .source-icon { font-size: 24px; flex-shrink: 0; }
+  .source-name { font-size: 14px; font-weight: 600; }
+  .source-desc { font-size: 11px; color: #6b7280; }
+  .source-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 4px; display: inline-block; }
+  .status-connected { background: #34d39922; color: #34d399; }
+  .status-planned { background: #fbbf2422; color: #fbbf24; }
+
+  /* Naming rules table */
+  .rules-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rules-table th { text-align: left; padding: 8px 12px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2d3140; }
+  .rules-table td { padding: 10px 12px; border-bottom: 1px solid #1f2333; }
+  .rules-table tr:hover { background: #1f2333; }
+  .rules-table code { background: #60a5fa12; color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* Search patterns */
+  .pattern-card { background: #0f1117; border: 1px solid #2d3140; border-radius: 8px; padding: 14px; margin-bottom: 8px; }
+  .pattern-ask { font-size: 13px; margin-bottom: 6px; color: #e1e4e8; }
+  .pattern-query { font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 12px; color: #60a5fa; background: #60a5fa08; padding: 6px 10px; border-radius: 6px; }
+
+  /* Migration */
+  .migration-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f1117; border: 1px solid #2d3140; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+  .migration-from { color: #f87171; flex: 1; }
+  .migration-arrow { color: #60a5fa; font-weight: bold; flex-shrink: 0; }
+  .migration-to { color: #34d399; flex: 1; }
+
+  /* Tabs inside cards */
+  .inner-tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid #2d3140; }
+  .inner-tab { padding: 6px 14px; background: none; border: none; color: #6b7280; font-size: 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: .2s; }
+  .inner-tab:hover { color: #e1e4e8; }
+  .inner-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; font-weight: 600; }
+  .inner-content { display: none; }
+  .inner-content.active { display: block; }
+
+  /* Scrollable card */
+  .scroll-card { max-height: 600px; overflow-y: auto; }
+  .scroll-card::-webkit-scrollbar { width: 6px; }
+  .scroll-card::-webkit-scrollbar-thumb { background: #2d3140; border-radius: 3px; }
+  .scroll-card::-webkit-scrollbar-track { background: transparent; }
+
+  @media(max-width:900px){ .stats-row{grid-template-columns:repeat(3,1fr);} .grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;} }
+  @media(max-width:600px){ .stats-row{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+
+<!-- Nav bar — matches other dashboards -->
+<div class="nav">
+  <a href="https://vercel-dashboard-sooty.vercel.app">Project Status</a>
+  <a href="https://jira-dashboard-jade.vercel.app">Fulfillment</a>
+  <a href="#" class="active">Knowledge Base</a>
+</div>
+
+<div class="header">
+  <h1>Automation Architecture — Knowledge Base</h1>
+  <div class="updated">Business context structure &bull; Updated March 9, 2026</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+  <div class="stat-card"><div class="number" style="color:#60a5fa">7</div><div class="label">Top-Level Zones</div></div>
+  <div class="stat-card"><div class="number" style="color:#fbbf24">13</div><div class="label">Client Folders</div></div>
+  <div class="stat-card"><div class="number" style="color:#34d399">6</div><div class="label">Data Sources</div></div>
+  <div class="stat-card"><div class="number" style="color:#a78bfa">10</div><div class="label">Doc Type Prefixes</div></div>
+  <div class="stat-card"><div class="number" style="color:#22d3ee">3</div><div class="label">Auto-Ingest Feeds</div></div>
+</div>
+
+<!-- Data Sources -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Connected Data Sources</h2>
+  <div class="source-grid">
+    <div class="source-card">
+      <div class="source-icon">📁</div>
+      <div><div class="source-name">Google Drive</div><div class="source-desc">Documents, proposals, contracts</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+    <div class="source-card">
+      <div class="source-icon">🎙️</div>
+      <div><div class="source-name">Fireflies.ai</div><div class="source-desc">Meeting transcripts → G Drive</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+    <div class="source-card">
+      <div class="source-icon">🧠</div>
+      <div><div class="source-name">Granola</div><div class="source-desc">Meeting notes & summaries</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+    <div class="source-card">
+      <div class="source-icon">💬</div>
+      <div><div class="source-name">Slack</div><div class="source-desc">Async conversations & updates</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+    <div class="source-card">
+      <div class="source-icon">📋</div>
+      <div><div class="source-name">Jira</div><div class="source-desc">Project tracking & fulfillment</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+    <div class="source-card">
+      <div class="source-icon">📅</div>
+      <div><div class="source-name">Google Calendar</div><div class="source-desc">Meetings & scheduling</div><div class="source-status status-connected">Connected</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Main content grid -->
+<div class="grid-2">
+
+  <!-- LEFT: Folder Structure -->
+  <div class="card scroll-card">
+    <h2>Google Drive Structure</h2>
+    <div class="tree">
+      <ul>
+        <li><span class="folder open" onclick="toggleTree(this)">Clients</span>
+          <ul>
+            <li><span class="folder" onclick="toggleTree(this)">John Tyler — Real Estate</span>
+              <ul style="display:none">
+                <li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"><li><span class="file">[PROPOSAL] Website Phase 1</span></li><li><span class="file">[PROPOSAL] 90-Day Digital Strategy</span></li></ul></li>
+                <li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"><li><span class="auto">[TRANSCRIPT] 2026-03-05 — Digital presence strategy <span class="tag tag-auto">AUTO</span></span></li></ul></li>
+                <li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li>
+                <li><span class="file">[BRIEF] Client Brief</span></li>
+              </ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Stefan — App Localization</span>
+              <ul style="display:none">
+                <li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"><li><span class="file">[PROPOSAL] Figma Translation Automation</span></li></ul></li>
+                <li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"><li><span class="auto">[TRANSCRIPT] 2026-02-26 — App localization strategy <span class="tag tag-auto">AUTO</span></span></li></ul></li>
+                <li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li>
+              </ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Robert — Architecture Firm</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Jonathan — Professional Licensing AI</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Property Management — AI Dashboard</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Cardello AI — Notion Automation</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Jason — AI Install Experts</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Hemant — Mobile App KB</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Dive Live — Mark Nerney</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Sprint Docs</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Coral Triangle AI</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Proposals</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Cihan — Content Automation</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Docs</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">Golfers Unite — Jeff</span>
+              <ul style="display:none"><li><span class="file">First Week Videos <span class="tag tag-existing">EXISTS</span></span></li></ul>
+            </li>
+            <li><span class="folder" onclick="toggleTree(this)">PTG — Connect AI Hotels</span>
+              <ul style="display:none"><li><span class="folder" onclick="toggleTree(this)">Requirements</span><ul style="display:none"><li><span class="file">PDP Feature Questions <span class="tag tag-existing">EXISTS</span></span></li></ul></li><li><span class="folder" onclick="toggleTree(this)">Transcripts</span><ul style="display:none"></ul></li><li><span class="folder" onclick="toggleTree(this)">Deliverables</span><ul style="display:none"></ul></li></ul>
+            </li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Operations</span>
+          <ul style="display:none">
+            <li><span class="file">Engineer Workflow & Expectations <span class="tag tag-existing">EXISTS</span></span></li>
+            <li><span class="folder" onclick="toggleTree(this)">Team</span><ul style="display:none"><li><span class="file">Onboarding, role descriptions</span></li></ul></li>
+            <li><span class="folder" onclick="toggleTree(this)">Processes</span><ul style="display:none"><li><span class="file">Dev lifecycle, client onboarding</span></li></ul></li>
+            <li><span class="folder" onclick="toggleTree(this)">Pricing</span><ul style="display:none"><li><span class="file">Rate cards, pricing models</span></li></ul></li>
+            <li><span class="folder" onclick="toggleTree(this)">Tools & Integrations</span><ul style="display:none"><li><span class="file">Google AI Studio <span class="tag tag-existing">EXISTS</span></span></li></ul></li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Templates</span>
+          <ul style="display:none">
+            <li><span class="file">[TEMPLATE] Proposal — Standard</span></li>
+            <li><span class="file">[TEMPLATE] SOW — Time & Materials</span></li>
+            <li><span class="file">[TEMPLATE] SOW — Fixed Price</span></li>
+            <li><span class="file">[TEMPLATE] Contract — MSA</span></li>
+            <li><span class="file">[TEMPLATE] Client Brief — Discovery</span></li>
+            <li><span class="file">[TEMPLATE] Sprint Kickoff</span></li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Recordings</span>
+          <ul style="display:none">
+            <li><span class="folder" onclick="toggleTree(this)">Unsorted <span class="tag tag-auto">AUTO</span></span><ul style="display:none"><li><span class="auto">Fireflies transcripts land here</span></li><li><span class="auto">Gemini meeting notes</span></li></ul></li>
+            <li><span class="folder" onclick="toggleTree(this)">Internal Meetings</span><ul style="display:none"><li><span class="file">Team standups, internal reviews</span></li></ul></li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Pipeline</span>
+          <ul style="display:none">
+            <li><span class="file">[TRACKER] Pipeline — Active Deals</span></li>
+            <li><span class="file">[TRACKER] Lead Sources</span></li>
+            <li><span class="folder" onclick="toggleTree(this)">Outreach</span><ul style="display:none"></ul></li>
+            <li><span class="folder" onclick="toggleTree(this)">Research</span><ul style="display:none"></ul></li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Brand</span>
+          <ul style="display:none">
+            <li><span class="folder" onclick="toggleTree(this)">Logos <span class="tag tag-existing">EXISTS</span></span><ul style="display:none"></ul></li>
+            <li><span class="file">Brand guidelines, style guide</span></li>
+          </ul>
+        </li>
+        <li><span class="folder" onclick="toggleTree(this)">_Archive</span>
+          <ul style="display:none">
+            <li><span class="file">Saved from Chrome <span class="tag tag-existing">EXISTS</span></span></li>
+            <li><span class="file">Inactive client folders</span></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- RIGHT: Naming Rules + Search Patterns -->
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <div class="card">
+      <h2>Document Naming Convention</h2>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">Consistent prefixes enable instant AI retrieval across all clients.</p>
+      <table class="rules-table">
+        <thead><tr><th>Prefix</th><th>Use For</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><code>[PROPOSAL]</code></td><td>Client proposals</td><td>[PROPOSAL] 2026-03-10 — Robert Ops</td></tr>
+          <tr><td><code>[CONTRACT]</code></td><td>Signed contracts</td><td>[CONTRACT] 2026-01-15 — Dive Live MSA</td></tr>
+          <tr><td><code>[SOW]</code></td><td>Statements of work</td><td>[SOW] 2026-02-01 — Stefan Figma</td></tr>
+          <tr><td><code>[TRANSCRIPT]</code></td><td>Meeting transcripts</td><td>[TRANSCRIPT] 2026-03-05 — John Tyler</td></tr>
+          <tr><td><code>[BRIEF]</code></td><td>Client briefs</td><td>[BRIEF] Robert — Architecture Firm</td></tr>
+          <tr><td><code>[DELIVERABLE]</code></td><td>Final deliverables</td><td>[DELIVERABLE] PTG PDP Feature Spec</td></tr>
+          <tr><td><code>[TEMPLATE]</code></td><td>Reusable templates</td><td>[TEMPLATE] Proposal — Standard</td></tr>
+          <tr><td><code>[TRACKER]</code></td><td>Spreadsheets</td><td>[TRACKER] Pipeline — Active Deals</td></tr>
+          <tr><td><code>[INVOICE]</code></td><td>Invoices sent</td><td>[INVOICE] Dive Live Sprint 4</td></tr>
+          <tr><td><code>[NOTES]</code></td><td>Internal notes</td><td>[NOTES] Competitive Research</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>AI Search Patterns</h2>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">How Claude finds documents from natural language queries.</p>
+
+      <div class="pattern-card">
+        <div class="pattern-ask">"Find my latest proposal for Robert"</div>
+        <div class="pattern-query">name contains '[PROPOSAL]' and name contains 'Robert'</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-ask">"What did Stefan say in our last call?"</div>
+        <div class="pattern-query">name contains '[TRANSCRIPT]' and name contains 'Stefan'</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-ask">"Show me all active contracts"</div>
+        <div class="pattern-query">name contains '[CONTRACT]'</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-ask">"Prep me for my call with Jonathan"</div>
+        <div class="pattern-query">name contains 'Jonathan' and (name contains '[BRIEF]' or name contains '[TRANSCRIPT]')</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-ask">"Get the SOW template"</div>
+        <div class="pattern-query">name contains '[TEMPLATE]' and name contains 'SOW'</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Migration Plan -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Migration Plan — Current Files</h2>
+  <p style="font-size:12px;color:#6b7280;margin-bottom:16px">Existing Google Drive items and where they move in the new structure.</p>
+  <div class="migration-item"><div class="migration-from">📁 Fireflies Meetings</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Recordings/Unsorted (landing zone → triage to Clients)</div></div>
+  <div class="migration-item"><div class="migration-from">📁 Meet Recordings</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Recordings/Internal Meetings</div></div>
+  <div class="migration-item"><div class="migration-from">📄 PTG Content Creator — PDP Feature</div><div class="migration-arrow">→</div><div class="migration-to">📁 Clients/PTG — Connect AI Hotels/Requirements/</div></div>
+  <div class="migration-item"><div class="migration-from">📄 Engineer Workflow & Expectations</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Operations/Team/</div></div>
+  <div class="migration-item"><div class="migration-from">📄 Cihan (Airtable doc)</div><div class="migration-arrow">→</div><div class="migration-to">📁 Clients/Cihan — Content Automation/Docs/</div></div>
+  <div class="migration-item"><div class="migration-from">📁 Google AI Studio</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Operations/Tools & Integrations/</div></div>
+  <div class="migration-item"><div class="migration-from">📁 Logos</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Brand/Logos/</div></div>
+  <div class="migration-item"><div class="migration-from">📁 Saved from Chrome</div><div class="migration-arrow">→</div><div class="migration-to">📁 _Archive/Saved from Chrome</div></div>
+</div>
+
+<!-- Fireflies Integration Flow -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Fireflies → Google Drive Integration Flow</h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <div style="background:#0f1117;border:1px solid #2d3140;border-radius:8px;padding:12px 16px;flex:1;min-width:140px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">🎙️</div>
+      <div style="font-size:12px;font-weight:600">Fireflies</div>
+      <div style="font-size:10px;color:#6b7280">Records meeting</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#60a5fa;font-size:20px">→</div>
+    <div style="background:#0f1117;border:1px solid #2d3140;border-radius:8px;padding:12px 16px;flex:1;min-width:140px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">📁</div>
+      <div style="font-size:12px;font-weight:600">G Drive Unsorted</div>
+      <div style="font-size:10px;color:#6b7280">Auto-landing zone</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#60a5fa;font-size:20px">→</div>
+    <div style="background:#0f1117;border:1px solid #2d3140;border-radius:8px;padding:12px 16px;flex:1;min-width:140px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">🤖</div>
+      <div style="font-size:12px;font-weight:600">Claude Triage</div>
+      <div style="font-size:10px;color:#6b7280">Identify client & rename</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#60a5fa;font-size:20px">→</div>
+    <div style="background:#0f1117;border:1px solid #2d3140;border-radius:8px;padding:12px 16px;flex:1;min-width:140px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">👤</div>
+      <div style="font-size:12px;font-weight:600">Client Folder</div>
+      <div style="font-size:10px;color:#6b7280">/Clients/{name}/Transcripts/</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#60a5fa;font-size:20px">→</div>
+    <div style="background:#0f1117;border:1px solid #2d3140;border-radius:8px;padding:12px 16px;flex:1;min-width:140px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">📋</div>
+      <div style="font-size:12px;font-weight:600">Action Items</div>
+      <div style="font-size:10px;color:#6b7280">→ Jira / Slack / Pipeline</div>
+    </div>
+  </div>
+</div>
+
+<!-- Context Assembly -->
+<div class="card">
+  <h2>Multi-Source Context Assembly</h2>
+  <p style="font-size:13px;color:#9ca3af;margin-bottom:16px">When Claude preps for a meeting or writes a proposal, it pulls from all connected sources in a predictable sequence:</p>
+  <table class="rules-table">
+    <thead><tr><th>#</th><th>Source</th><th>Path / Tool</th><th>Content</th></tr></thead>
+    <tbody>
+      <tr><td style="color:#60a5fa;font-weight:700">1</td><td>Google Drive</td><td>/Clients/{name}/</td><td>Client brief, past proposals, deliverables</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">2</td><td>Google Drive</td><td>/Clients/{name}/Transcripts/</td><td>Past meeting transcripts (Fireflies + Gemini)</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">3</td><td>Google Drive</td><td>/_Templates/</td><td>Relevant template to start from</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">4</td><td>Google Drive</td><td>/_Operations/Pricing/</td><td>Current rate cards</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">5</td><td>Granola</td><td>query_granola_meetings</td><td>Recent unprocessed meeting notes</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">6</td><td>Jira</td><td>searchJiraIssuesUsingJql</td><td>Project status & fulfillment data</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">7</td><td>Slack</td><td>slack_search</td><td>Latest async conversations</td></tr>
+      <tr><td style="color:#60a5fa;font-weight:700">8</td><td>Calendar</td><td>gcal_list_events</td><td>Upcoming meetings & scheduling</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top:40px;padding-top:16px;border-top:1px solid #2d3140;text-align:center;color:#6b7280;font-size:12px;">
+  Automation Architecture AI &bull; Knowledge Base Structure &bull; March 9, 2026
+</div>
+
+<script>
+function toggleTree(el) {
+  const ul = el.nextElementSibling;
+  if (ul && ul.tagName === 'UL') {
+    ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
+    el.classList.toggle('open');
+  }
+}
+</script>
+
+</body>
+</html>
