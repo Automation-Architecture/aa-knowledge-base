@@ -44,7 +44,7 @@
       }
       h1 { font-size: 20px; color: var(--teal); margin: 4px 0 0; }
       .sub { font-size: 14px; color: var(--body); margin-top: 8px; }
-      button, input {
+      button {
         font-family: inherit;
         font-size: 14px;
       }
@@ -59,29 +59,8 @@
         margin-top: 16px;
       }
       .btn:hover { background: var(--cream); }
-      .btn-primary {
-        background: var(--teal);
-        color: #fff;
-        border: none;
-        font-weight: 600;
-      }
-      .btn-primary:hover { opacity: 0.9; background: var(--teal); }
       .btn:disabled { opacity: 0.5; cursor: default; }
-      .sep { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
-      .sep hr { flex: 1; border: none; border-top: 1px solid var(--divider); }
-      .sep span { font-size: 12px; color: var(--gray); }
-      input[type="email"] {
-        width: 100%;
-        border: 1px solid var(--divider);
-        border-radius: 10px;
-        padding: 11px;
-        margin-top: 4px;
-      }
-      input[type="email"]:focus {
-        outline: none;
-        border-color: var(--teal);
-        box-shadow: 0 0 0 2px rgba(0, 77, 67, 0.2);
-      }
+      #signin { margin-top: 16px; min-height: 120px; }
       .msg { font-size: 13px; margin-top: 16px; border-radius: 10px; padding: 12px; }
       .msg-ok { color: var(--teal); background: rgba(230, 255, 43, 0.3); }
       .msg-err { color: #b00020; background: #fdecea; }
@@ -95,20 +74,7 @@
       <h1>AAA Internal · Sign in</h1>
       <p class="sub">Internal tool — authorized access only.</p>
 
-      <div id="signin">
-        <form id="magic">
-          <input
-            id="email"
-            type="email"
-            required
-            placeholder="you@automationarchitecture.ai"
-            autocomplete="email"
-          />
-          <button class="btn btn-primary" id="send" type="submit">
-            Email me a sign-in link
-          </button>
-        </form>
-      </div>
+      <div id="signin"></div>
 
       <div id="forbidden" class="hidden">
         <div class="msg msg-err">
@@ -123,11 +89,7 @@
     </div>
 
     <script type="module">
-      import { createBrowserClient } from "https://esm.sh/@supabase/ssr@0.10.3";
-
-      const SUPABASE_URL = "https://qmdblnaqpylbnufvarcu.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtZGJsbmFxcHlsYm51ZnZhcmN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjc5NjQsImV4cCI6MjA5Njg0Mzk2NH0.MykVoRstXhS7NUdq55rEt0HnsLPartu3wX1kt8DbI5A";
-      const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      import { loadClerk } from "/auth/clerk.js";
 
       const params = new URLSearchParams(location.search);
       const $ = (id) => document.getElementById(id);
@@ -140,37 +102,40 @@
         show(status);
       }
 
+      let clerk;
+      try {
+        clerk = await loadClerk();
+      } catch (err) {
+        setStatus(err.message || "Clerk is not configured.", false);
+        throw err;
+      }
+
+      $("switch").addEventListener("click", async () => {
+        await clerk.signOut();
+        location.href = "/login";
+      });
+
       if (params.get("error") === "forbidden") {
         hide($("signin"));
         show($("forbidden"));
       } else if (params.get("error") === "auth") {
         setStatus("Sign-in failed — please try again.", false);
+        clerk.mountSignIn($("signin"), {
+          routing: "virtual",
+          forceRedirectUrl: "/",
+          signUpUrl: "/login",
+        });
+      } else if (clerk.isSignedIn) {
+        // Already signed in? Bounce to the dashboard; the edge gate
+        // re-checks the allowlist. Skipped when forbidden to avoid a loop.
+        location.replace("/");
       } else {
-        // Already signed in (and refreshable)? Bounce to the dashboard; the edge
-        // gate re-checks the allowlist. Skipped when an error param is present to
-        // avoid a redirect loop on the forbidden case.
-        supabase.auth.getSession().then(({ data }) => {
-          if (data.session) location.replace("/");
+        clerk.mountSignIn($("signin"), {
+          routing: "virtual",
+          forceRedirectUrl: "/",
+          signUpUrl: "/login",
         });
       }
-
-      $("magic").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = $("email").value.trim();
-        $("send").disabled = true;
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: { emailRedirectTo: location.origin + "/auth/callback" },
-        });
-        $("send").disabled = false;
-        if (error) setStatus(error.message, false);
-        else setStatus("Check your inbox — the sign-in link is on its way.", true);
-      });
-
-      $("switch").addEventListener("click", async () => {
-        await supabase.auth.signOut();
-        location.href = "/login";
-      });
     </script>
   </body>
 </html>

@@ -1,0 +1,12 @@
+{
+  "name": "aa-knowledge-base",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node -c middleware.js && node -c middleware.test.js",
+    "test": "node --test middleware.test.js"
+  },
+  "dependencies": {
+    "@clerk/backend": "^2.16.0"
+  }
+}
