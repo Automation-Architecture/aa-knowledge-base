@@ -36,44 +36,36 @@
       <div id="msg">Signing you in…</div>
     </div>
     <script type="module">
-      import { createBrowserClient } from "https://esm.sh/@supabase/ssr@0.10.3";
-
-      const SUPABASE_URL = "https://qmdblnaqpylbnufvarcu.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtZGJsbmFxcHlsYm51ZnZhcmN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjc5NjQsImV4cCI6MjA5Njg0Mzk2NH0.MykVoRstXhS7NUdq55rEt0HnsLPartu3wX1kt8DbI5A";
-      const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      import { loadClerk } from "/auth/clerk.js";
 
       const params = new URLSearchParams(location.search);
       function fail() {
         location.replace("/login?error=auth");
       }
 
-      let done = false;
-      function go() {
-        if (done) return;
-        done = true;
-        location.replace("/");
-      }
-
       if (params.get("error")) {
-        // Provider returned an explicit error (e.g. user cancelled) — bail now,
-        // don't also wire up the session listeners (avoids racing redirects).
         fail();
       } else {
-        // The browser client auto-detects the code/token in the URL and exchanges
-        // it for a session (setting the sb-<ref>-auth-token cookie the edge gate
-        // reads). When the session lands, head to the dashboard.
-        supabase.auth.onAuthStateChange((_event, session) => {
-          if (session) go();
-        });
-
-        // Belt-and-suspenders: if the listener didn't fire, check directly.
-        supabase.auth.getSession().then(({ data }) => {
-          if (data.session) go();
-        });
-
-        // Give up if no session materialises.
+        try {
+          const clerk = await loadClerk();
+          if (typeof clerk.handleRedirectCallback === "function") {
+            await clerk.handleRedirectCallback({
+              afterSignInUrl: "/",
+              afterSignUpUrl: "/",
+              redirectUrl: "/",
+            });
+          } else if (clerk.isSignedIn) {
+            location.replace("/");
+          } else {
+            fail();
+          }
+        } catch {
+          fail();
+        }
         setTimeout(() => {
-          if (!done) fail();
+          if (!location.pathname || location.pathname.startsWith("/auth/")) {
+            fail();
+          }
         }, 8000);
       }
     </script>
